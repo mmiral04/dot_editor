@@ -1,6 +1,8 @@
 import re
+from typing import Tuple
 
 from shapes import *
+from gui import GUI
 
 class NodeStyle:
     def __init__(self, fontname: str, label: str, shape: Shape):
@@ -21,6 +23,13 @@ class Node:
         # overwrite with specific style if defined
         self.label = label or self.label
         self.shape = shape or self.shape
+
+    def moveTo(self, pos: Tuple[float, float]):
+        self.pos = pos
+
+    def render(self, canvas: Canvas):
+        self.shape.render(canvas, self.pos, self.width/2, self.label)
+
 
 class EdgeStyle:
     def __init__(self, fontname: str):
@@ -76,7 +85,7 @@ class Graph:
         self.defaultEdgeStyle = edgeStyle
 
 
-param_re = re.compile(r"(\w+)=\"?([^\"]*)\"?(?:, )?")
+param_re = re.compile(r"(\w+)=\"?([^\"\s\!]*)\!?\"?(?:, )?")
 
 
 def findObjects():
@@ -139,10 +148,10 @@ def findObjects():
             for parameter in object.group(3).split(", "):
                 paramname, value = param_re.search(parameter).groups()
                 if paramname == "height":
-                    height = float(value) 
+                    height = float(value) * 42
                 elif paramname == "pos":
                     pos_aux = value.split(",")
-                    pos = (float(pos_aux[0]), float(pos_aux[1]))
+                    pos = (float(pos_aux[0])/1.6 + 300, (1500 - float(pos_aux[1]))/1.6 + 75)
                 elif paramname == "shape":
                     # TODO: factoria
                     if value == "circle":
@@ -150,7 +159,7 @@ def findObjects():
                     elif value == "doublecircle":
                         shape = DoubleCircleShape()
                 elif paramname == "width":
-                    width = float(value)
+                    width = float(value) * 42
             graph.addNode(Node(height, width, pos, graph.defaultNodeStyle, shape, label))
 
         # parse edges
@@ -167,11 +176,9 @@ def findObjects():
                     pos = value 
             graph.addEdge(Edge(origin, dest, label, lp, pos))
 
-    for i in graph.edges:
-        print(i.origin, "->", i.dest)
+    return graph
 
 
 if __name__ == "__main__":
-    string = r'label="[^\\n, EOF]"'
-    print(param_re.search(string))
-    findObjects()
+    graph = findObjects()
+    GUI(graph).start()
