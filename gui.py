@@ -1,6 +1,8 @@
 import tkinter as tk
 import time
+from typing import Tuple
 
+from geometry import Point
 
 class GUI:
     def __init__(self, graph: Graph, dimensions: Tuple[int, int] = (1500, 1500),
@@ -17,31 +19,34 @@ class GUI:
         self.canvas.pack()
         self.canvas.bind("<ButtonPress-1>", self.on_drag_start)
         self.canvas.bind("<B1-Motion>", self.on_drag_motion)
+        self.canvas.bind("<ButtonRelease-1>", self.on_drag_stop)
         
         self.nodes = self.graph.nodes
         self.edges = self.graph.edges
 
     def isCircle(self, x, y):
-        for name, (cX, cY, r) in self.objects.items():
-            if ((x - cX)**2 + (y - cY)**2 < r**2):
+        for name, node in self.nodes.items():
+            if ((x - node.pos.x)**2 + (y - node.pos.y)**2 < node.width**2):
                 return name
 
     def on_drag_start(self, event):
         event.widget.currentObject = self.isCircle(event.x, event.y)
-        event.widget.startX = event.x
-        event.widget.startY = event.y
-
 
     def on_drag_motion(self, event):
-        object = event.widget.currentObject
-        radius = self.objects[object][2]
-        event.widget.delete(object)
-        event.widget.create_oval(event.x - radius, event.y - radius,
-                                 event.x + radius, event.y + radius, tags = object, fill = "white")
-        self.objects[object] = (event.x, event.y, radius)
+        if event.widget.currentObject == None:
+            return
+        object = self.nodes[event.widget.currentObject]
+        event.widget.delete(event.widget.currentObject)
+        object.moveTo(Point(event.x, event.y))
+        object.render(self.canvas)
+
+    def on_drag_stop(self, event):
+        event.widget.currentObject = None
 
     def start(self):
         for node in self.nodes.values():
             node.render(self.canvas)
+        for edge in self.edges:
+            edge.render(self.canvas)
         self.root.mainloop()
 

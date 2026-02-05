@@ -1,8 +1,10 @@
 import re
-from typing import Tuple
+from tkinter import Canvas
+from typing import Dict, Tuple
 
 from shapes import *
 from gui import GUI
+from geometry import Point, Segment, Circle
 
 class NodeStyle:
     def __init__(self, fontname: str, label: str, shape: Shape):
@@ -11,24 +13,29 @@ class NodeStyle:
         self.shape = shape
 
 class Node:
-    def __init__(self, height: float, width: float, pos: Tuple[float, float],
+    def __init__(self, height: float, width: float, pos: Point,
                  style: NodeStyle, shape: Shape = None, label: str = None):
         self.height = height
         self.width = width
         self.pos = pos
-        # set default style
-        self.label = style.label
-        self.shape = style.shape
 
-        # overwrite with specific style if defined
-        self.label = label or self.label
-        self.shape = shape or self.shape
+        self.label = label or style.label
+        if shape == None:
+            self.shape = style.shape.clone(pos, width, label)
+        else:
+            self.shape = shape
 
-    def moveTo(self, pos: Tuple[float, float]):
+        self.object = Circle(self.pos, self.width)
+
+    def moveTo(self, pos: Point):
         self.pos = pos
+        self.shape.moveTo(pos)
 
     def render(self, canvas: Canvas):
-        self.shape.render(canvas, self.pos, self.width/2, self.label)
+        self.shape.render(canvas)
+
+    def edgeIntersectPoint(self, segment: Segment) -> Point:
+        return self.object.intersect(segment)
 
 
 class EdgeStyle:
@@ -37,12 +44,24 @@ class EdgeStyle:
 
 
 class Edge:
-    def __init__(self, origin: Node, dest: Node, label: str, lp: Tuple[int, int], pos: str):
+    def __init__(self, origin: Node, dest: Node, label: str, lp: Point):
         self.origin = origin 
         self.dest = dest 
         self.label = label
         self.lp = lp
-        self.pos = pos
+        self.pos = self.calculatePos()
+        self.shape = Arrow(self.pos[0], self.pos[1], label)
+
+    def calculatePos(self):
+        if (self.origin == self.dest):
+            return (self.origin.pos, self.origin.pos)
+        line = Segment(self.origin.pos, self.dest.pos)
+        start = self.origin.edgeIntersectPoint(line)[0]
+        end = self.dest.edgeIntersectPoint(line)[0]
+        return (start, end)
+    
+    def render(self, canvas: Canvas):
+        self.shape.render(canvas)
 
 
 class BoundingBox:
@@ -85,10 +104,12 @@ class Graph:
         self.defaultEdgeStyle = edgeStyle
 
 
-param_re = re.compile(r"(\w+)=\"?([^\"\s\!]*)\!?\"?(?:, )?")
 
 
 def findObjects():
+    param_re = re.compile(r"(\w+)=\"?([^\"\s\!]*)\!?\"?(?:, )?")
+    object_re = re.compile(r"\b(\w+)\s(?:\-> )?(\w*\s)?\[(.*?)\];")
+
     file = open("afdmanual.dot", "r")
     data = file.read().replace("(?<!\\)\n", "") # remove new line
     data = re.sub(r"\s+", r" ", data)    # remove extra spaces
@@ -97,7 +118,7 @@ def findObjects():
     name, data = re.search(r"digraph\s(.*?)\s\{(.*?)\}", data).groups()
 
     graph = Graph() 
-    for object in re.finditer(r"\b(\w+)\s(?:\-> )?(\w*\s)?\[(.*?)\];", data):
+    for object in object_re.finditer(data):
         # parse graph
         if object.group(1) == "graph": 
             additionalParams = dict()
@@ -145,36 +166,39 @@ def findObjects():
         # parse nodes
         elif object.group(2) == None:
             height, pos, shape, label, width = "", None, None, object.group(1), 0
+            shape_aux = ""
             for parameter in object.group(3).split(", "):
                 paramname, value = param_re.search(parameter).groups()
                 if paramname == "height":
-                    height = float(value) * 42
+                    height = float(value) * 21
                 elif paramname == "pos":
                     pos_aux = value.split(",")
-                    pos = (float(pos_aux[0])/1.6 + 300, (1500 - float(pos_aux[1]))/1.6 + 75)
+                    pos = Point(float(pos_aux[0])/1.6 + 300, (1500 - float(pos_aux[1]))/1.6 + 75)
                 elif paramname == "shape":
-                    # TODO: factoria
-                    if value == "circle":
-                        shape = CircleShape()
-                    elif value == "doublecircle":
-                        shape = DoubleCircleShape()
+                    shape_aux = value
                 elif paramname == "width":
-                    width = float(value) * 42
-            graph.addNode(Node(height, width, pos, graph.defaultNodeStyle, shape, label))
+                    width = float(value) * 21
+
+            if shape_aux == "circle":
+                shape = CircleShape(pos, width, label)
+            elif shape_aux == "doublecircle":
+                shape = DoubleCircleShape(pos, width, label)
+            n = Node(height, width, pos, graph.defaultNodeStyle, shape, label)
+            graph.addNode(n)
 
         # parse edges
         else:
-            origin, dest, label, lp, pos = object.group(1), object.group(2), "", (), ""
+            origin, dest, label, lp, pos = object.group(1).strip(), object.group(2).strip(), "", (), ""
             for parameter in object.group(3).split(", "):
                 paramname, value = param_re.search(parameter).groups()
                 if paramname == "label":
                     label = value
                 elif paramname == "lp":
                     lp_aux = value.split(",")
-                    lp = (float(lp_aux[0]), float(lp_aux[1]))
+                    lp = Point(float(lp_aux[0]), float(lp_aux[1]))
                 elif paramname == "pos":
                     pos = value 
-            graph.addEdge(Edge(origin, dest, label, lp, pos))
+            graph.addEdge(Edge(graph.nodes[origin], graph.nodes[dest], label, lp))
 
     return graph
 
