@@ -34,6 +34,9 @@ class DoubleCircleShape(Shape):
     def moveTo(self, pos: Point):
         self.pos = pos
 
+    def __str__(self):
+        return "doublecircle"
+
 class CircleShape(Shape):
     def __init__(self, pos: Point = None, radius: float = 0, label: str = ""):
         self.pos = pos
@@ -53,14 +56,24 @@ class CircleShape(Shape):
     def moveTo(self, pos: Point):
         self.pos = pos
 
+    def __str__(self):
+        return "circle"
+
 
 class Arrow(Shape):
     def __init__(self, origin: Point, dest: Point, label: str):
         self.origin = origin
         self.dest = dest
         self.label = label
+        self.id = None
+
+    def moveTo(self, origin: Point, dest: Point):
+        self.origin = origin
+        self.dest = dest
 
     def render(self, canvas):
-        canvas.create_line(self.origin.x, self.origin.y,
+        if self.id != None:
+            canvas.delete(self.id)
+        self.id = canvas.create_line(self.origin.x, self.origin.y,
                            self.dest.x, self.dest.y,
                            arrow = "last")

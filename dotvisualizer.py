@@ -26,13 +26,17 @@ class Node:
             self.shape = shape
 
         self.object = Circle(self.pos, self.width)
+        self.incommingEdges = list()
 
     def moveTo(self, pos: Point):
         self.pos = pos
         self.shape.moveTo(pos)
+        self.object = Circle(self.pos, self.width)
 
     def render(self, canvas: Canvas):
         self.shape.render(canvas)
+        for edge in self.incommingEdges:
+            edge.render(canvas)
 
     def edgeIntersectPoint(self, segment: Segment) -> Point:
         return self.object.intersect(segment)
@@ -49,18 +53,22 @@ class Edge:
         self.dest = dest 
         self.label = label
         self.lp = lp
-        self.pos = self.calculatePos()
-        self.shape = Arrow(self.pos[0], self.pos[1], label)
+        pos = self.calculatePos()
+        self.shape = Arrow(pos[0], pos[1], label)
+        origin.incommingEdges.append(self)
+        dest.incommingEdges.append(self)
 
     def calculatePos(self):
         if (self.origin == self.dest):
             return (self.origin.pos, self.origin.pos)
         line = Segment(self.origin.pos, self.dest.pos)
-        start = self.origin.edgeIntersectPoint(line)[0]
-        end = self.dest.edgeIntersectPoint(line)[0]
+        start = self.origin.edgeIntersectPoint(line)[0] or self.origin.pos
+        end = self.dest.edgeIntersectPoint(line)[0] or self.dest.pos
         return (start, end)
     
     def render(self, canvas: Canvas):
+        posX, posY = self.calculatePos()
+        self.shape.moveTo(posX, posY)
         self.shape.render(canvas)
 
 
@@ -73,12 +81,14 @@ class BoundingBox:
 
 class Graph:
     def __init__(self, defaultNodeStyle: NodeStyle = None, defaultEdgeStyle: EdgeStyle = None,
-                 boundingBox: BoundingBox = None, fontname: str = "", params: Dict[str, str] = dict()):
+                 boundingBox: BoundingBox = None, fontname: str = "", params: Dict[str, str] = dict(),
+                 name: str = ""):
         self.defaultNodeStyle = defaultNodeStyle
         self.defaultEdgeStyle = defaultEdgeStyle
         self.boundingBox = boundingBox
         self.fontname = fontname
         self.params = params
+        self.name = name
         self.nodes = dict() # dictionary of nodes: label -> Node
         self.edges = list() # list of edges
 
@@ -110,14 +120,14 @@ def findObjects():
     param_re = re.compile(r"(\w+)=\"?([^\"\s\!]*)\!?\"?(?:, )?")
     object_re = re.compile(r"\b(\w+)\s(?:\-> )?(\w*\s)?\[(.*?)\];")
 
-    file = open("afdmanual.dot", "r")
+    file = open("afdmanual2.dot", "r")
     data = file.read().replace("(?<!\\)\n", "") # remove new line
     data = re.sub(r"\s+", r" ", data)    # remove extra spaces
 
     # extract name
     name, data = re.search(r"digraph\s(.*?)\s\{(.*?)\}", data).groups()
 
-    graph = Graph() 
+    graph = Graph(name = name) 
     for object in object_re.finditer(data):
         # parse graph
         if object.group(1) == "graph": 
@@ -202,7 +212,31 @@ def findObjects():
 
     return graph
 
+def writeObjects(graph: Graph):
+    file = open("output.dot", "w")
+
+    # header
+    file.write(f"digraph {graph.name}" + " {\n")
+
+    # graph section
+    file.write("graph [layout = fdp, overlap = false];\n")
+
+    # node section
+    file.write('node [label = "\\N", shape=circle];\n')
+
+    # edge section
+    file.write('edge [fontname="Helvetica,Arial,sans-serif"];\n')
+
+    # definitions
+    for name, node in graph.nodes.items():
+        file.write(f'{name} [shape={node.shape}, pos="{node.pos.x * 1.6},{(1500 - node.pos.y) *1.6}!"];\n')
+    
+    for edge in graph.edges:
+        file.write(f'{edge.origin.label} -> {edge.dest.label} [label="{edge.label}"];\n')
+
+    # end
+    file.write("}")
 
 if __name__ == "__main__":
     graph = findObjects()
-    GUI(graph).start()
+    GUI(graph, writeObjects).start()

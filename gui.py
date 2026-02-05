@@ -5,7 +5,7 @@ from typing import Tuple
 from geometry import Point
 
 class GUI:
-    def __init__(self, graph: Graph, dimensions: Tuple[int, int] = (1500, 1500),
+    def __init__(self, graph: Graph, saveCallback, dimensions: Tuple[int, int] = (1500, 1500),
                  title: str = "dot-editor"):
         self.dimensions = dimensions
         self.title = title
@@ -20,6 +20,9 @@ class GUI:
         self.canvas.bind("<ButtonPress-1>", self.on_drag_start)
         self.canvas.bind("<B1-Motion>", self.on_drag_motion)
         self.canvas.bind("<ButtonRelease-1>", self.on_drag_stop)
+
+        saveButton = tk.Button(self.root, text = "save", command=lambda: saveCallback(self.graph))
+        self.canvas.create_window(40, 20, window=saveButton)
         
         self.nodes = self.graph.nodes
         self.edges = self.graph.edges

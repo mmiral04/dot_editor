@@ -29,13 +29,13 @@ class Circle:
     def intersect(self, segment: Segment) -> List[Point]:
         points = list()
         i = self.object.intersection(segment.object)
-        if (type(self.object.intersection(segment.object)) == sg.point.Point):
+        if (type(i) == sg.point.Point):
             # single point
             points.append(Point(i.coords[0][0], i.coords[0][1]))
         else:
-            # multiple points
-            for p in self.object.intersection(segment.object).geoms:
-                points.append(Point(p.coords[0][0], p.coords[0][1]))
+            # if there are no points, the node is in an invalid position
+            # and can be ignored
+            return (None, None)
 
         return points
 
