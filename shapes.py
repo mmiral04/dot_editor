@@ -1,12 +1,17 @@
 from abc import ABC, abstractmethod
 from tkinter import Canvas
 import tkinter.font as tkFont
+import svg
+from textwrap import dedent
 
 from geometry import Point
 
 class Shape(ABC):
     @abstractmethod
     def render(self, canvas: Canvas):
+        raise NotImplementedError
+    
+    def toSVG(self) -> svg.SVG:
         raise NotImplementedError
 
 class DoubleCircleShape(Shape):
@@ -31,6 +36,25 @@ class DoubleCircleShape(Shape):
         canvas.create_text(self.pos.x, self.pos.y, text = self.label,
                            font = tkFont.Font(size=7), tags = self.label)
         
+    def toSVG(self):
+        return svg.SVG(
+            elements=[
+                svg.Circle(
+                    cx=self.pos.x, cy=self.pos.y, r=self.radius,
+                    stroke="black", fill="white",
+                ),
+                svg.Circle(
+                    cx=self.pos.x, cy=self.pos.y, r=self.radius - 5,
+                    stroke="black", fill="white",
+                ),
+                svg.Text(
+                    x=self.pos.x, y =self.pos.y + 5,
+                    text_anchor="middle",
+                    text=self.label, stroke="black",
+                    stroke_width = 0,
+                    class_=["small"]
+                )]
+            )
     def moveTo(self, pos: Point):
         self.pos = pos
 
@@ -53,6 +77,22 @@ class CircleShape(Shape):
         canvas.create_text(self.pos.x, self.pos.y, text = self.label,
                                 font = tkFont.Font(size=7), tags = self.label)
         
+    def toSVG(self) -> svg.SVG:
+        return svg.SVG(
+            elements=[
+                svg.Circle(
+                    cx=self.pos.x, cy=self.pos.y, r=self.radius,
+                    stroke="black", fill="white",
+                ),
+                svg.Text(
+                    x=self.pos.x, y =self.pos.y + 5,
+                    text_anchor="middle",
+                    text=self.label, stroke="black",
+                    stroke_width = 0,
+                    class_=["small"]
+                )]
+            )
+            
     def moveTo(self, pos: Point):
         self.pos = pos
 
@@ -77,3 +117,22 @@ class Arrow(Shape):
         self.id = canvas.create_line(self.origin.x, self.origin.y,
                            self.dest.x, self.dest.y,
                            arrow = "last")
+        
+    def toSVG(self) -> svg.SVG:
+        return svg.SVG(
+            width=1500,
+            height=1500,
+            elements=[
+                svg.Path(
+                    stroke="black",
+                    d= f"M {self.origin.x},{self.origin.y}" +
+                       f"L {self.dest.x},{self.dest.y}" +
+                       f"L {self.dest.x}",
+                    stroke_width=1
+                )
+            ]
+        )
+    
+if __name__ == "__main__":
+    file = open("output.svg", "w")
+    file.write(str(Arrow(Point(600, 600), Point(800, 900), "label").toSVG()))
